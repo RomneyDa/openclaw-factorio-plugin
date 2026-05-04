@@ -1,5 +1,5 @@
 {
-  "name": "openclaw-factorio-runtime",
+  "name": "openclaw-factorio",
   "version": "0.2.0",
   "description": "OpenClaw plugin for live Factorio inspection/control through a bundled runtime mod and local RCON bridge.",
   "type": "module",

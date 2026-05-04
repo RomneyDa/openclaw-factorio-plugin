@@ -1,7 +1,7 @@
 {
   "id": "openclaw-factorio-runtime",
-  "name": "OpenClaw Factorio Runtime",
-  "description": "Installs a bundled Factorio runtime API mod and exposes safe local RCON tools for live game inspection/control.",
+  "name": "OpenClaw Factorio",
+  "description": "Live Factorio inspection/control through a bundled runtime API mod and safe local RCON tools.",
   "version": "0.2.0",
   "activation": {
     "onStartup": true,
