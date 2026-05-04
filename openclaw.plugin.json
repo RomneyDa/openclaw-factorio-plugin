@@ -2,7 +2,7 @@
   "id": "openclaw-factorio-runtime",
   "name": "OpenClaw Factorio",
   "description": "Live Factorio inspection/control through a bundled runtime API mod and safe local RCON tools.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "activation": {
     "onStartup": true,
     "onCapabilities": [
@@ -58,10 +58,6 @@
     "requireConfirmationForMutatingActions": {
       "label": "Require confirmation for mutating actions",
       "help": "Default true. Set false only if you want agents to craft/place/move/mine/destroy/give/remove without per-action confirmation."
-    },
-    "allowMutationsWithoutConfirmation": {
-      "label": "Allow mutations without confirmation",
-      "help": "Dangerous opt-in alias. Keep false unless this Factorio save is safe for autonomous actions."
     }
   },
   "configSchema": {
@@ -94,11 +90,6 @@
         "type": "boolean",
         "default": true,
         "description": "When false, factorio_runtime mutating actions do not require confirmed=true."
-      },
-      "allowMutationsWithoutConfirmation": {
-        "type": "boolean",
-        "default": false,
-        "description": "Alias for setting requireConfirmationForMutatingActions=false."
       }
     }
   }

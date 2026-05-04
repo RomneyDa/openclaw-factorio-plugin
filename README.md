@@ -45,15 +45,7 @@ Users who want autonomous action can opt out in plugin config:
 }
 ```
 
-or:
-
-```json
-{
-  "allowMutationsWithoutConfirmation": true
-}
-```
-
-Use this only for saves where you're comfortable letting OpenClaw craft/place/move/mine/destroy/give/remove without per-action confirmation.
+Set this to `false` only for saves where you're comfortable letting OpenClaw craft/place/move/mine/destroy/give/remove without per-action confirmation.
 
 ## Install
 

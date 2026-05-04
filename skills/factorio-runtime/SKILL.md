@@ -55,15 +55,7 @@ Users can opt out globally with plugin config:
 }
 ```
 
-or:
-
-```json
-{
-  "allowMutationsWithoutConfirmation": true
-}
-```
-
-If either opt-out is configured, mutating actions may be executed without per-action confirmation. Still be careful: read state first, avoid broad/destructive changes unless requested, and explain what you did.
+If this opt-out is configured, mutating actions may be executed without per-action confirmation. Still be careful: read state first, avoid broad/destructive changes unless requested, and explain what you did.
 
 ## Workflows
 

@@ -302,7 +302,6 @@ function normalizeActionParams(params = {}) {
 
 function mutationRequiresConfirmation(pluginConfig, params) {
   if (pluginConfig.requireConfirmationForMutatingActions === false) return false;
-  if (pluginConfig.allowMutationsWithoutConfirmation === true) return false;
   return !params?.confirmed;
 }
 
@@ -449,7 +448,7 @@ export default definePluginEntry({
       async execute(_callId, params) {
         const normalized = normalizeActionParams(params || {});
         if (MUTATING_ACTIONS.has(normalized.action) && mutationRequiresConfirmation(pluginConfig, params || {})) {
-          return textResult(`Confirmation required before Factorio mutating action: ${normalized.action}. Ask the user to confirm, then retry with confirmed=true. To disable this guard, set plugins.entries.openclaw-factorio-runtime.config.requireConfirmationForMutatingActions=false (or allowMutationsWithoutConfirmation=true).`, { action: normalized.action, confirmationRequired: true });
+          return textResult(`Confirmation required before Factorio mutating action: ${normalized.action}. Ask the user to confirm, then retry with confirmed=true. To disable this guard, set plugins.entries.openclaw-factorio-runtime.config.requireConfirmationForMutatingActions=false.`, { action: normalized.action, confirmationRequired: true });
         }
         const data = await callRuntime(pluginConfig, normalized.apiName, normalized.args);
         return typeof data === "string" ? textResult(data) : jsonResult(data);
