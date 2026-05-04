@@ -261,32 +261,64 @@ async function callRuntime(pluginConfig, apiName, args = [], overrides = {}) {
   return runRconCommand(pluginConfig, buildRemoteCall(apiName, args), overrides);
 }
 
+const READ_ACTIONS = new Set([
+  "capabilities", "players", "state", "inventory", "selected_entity", "nearby", "nearby_entities", "resources", "production", "production_stats", "force_state", "research", "technologies", "recipes", "prototypes_search", "surface_info",
+]);
+const SAFE_WRITE_ACTIONS = new Set(["chat"]);
+const MUTATING_ACTIONS = new Set(["craft", "give_item", "remove_item", "place_entity", "destroy_selected", "mine_selected", "move", "move_player"]);
+
 function normalizeActionParams(params = {}) {
   const action = params.action || params.api || "state";
   const player = params.player ?? "";
   switch (action) {
-    case "state": return { apiName: "state", args: [player] };
-    case "inventory": return { apiName: "inventory", args: [player] };
+    case "capabilities": return { action, apiName: "capabilities", args: [] };
+    case "players": return { action, apiName: "players", args: [] };
+    case "state": return { action, apiName: "state", args: [player] };
+    case "inventory": return { action, apiName: "inventory", args: [player] };
+    case "selected_entity": return { action, apiName: "selected_entity", args: [player] };
     case "nearby_entities":
-    case "nearby": return { apiName: "nearby_entities", args: [player, Number(params.radius ?? 10)] };
+    case "nearby": return { action, apiName: "nearby_entities", args: [player, Number(params.radius ?? 10), params.name || "", params.type || "", params.force || "", Number(params.limit ?? 200)] };
+    case "resources": return { action, apiName: "resources", args: [player, Number(params.radius ?? 50), Number(params.limit ?? 200)] };
     case "production_stats":
-    case "production": return { apiName: "production_stats", args: [player] };
-    case "chat": return { apiName: "chat", args: [params.message || ""] };
-    case "place_entity": return { apiName: "place_entity", args: [player, params.entityName || params.entity || "", Number(params.dx ?? 0), Number(params.dy ?? 0)] };
-    case "craft": return { apiName: "craft", args: [player, params.itemName || params.item || "", Number(params.count ?? 1)] };
+    case "production": return { action, apiName: "production_stats", args: [player] };
+    case "force_state": return { action, apiName: "force_state", args: [player] };
+    case "research": return { action, apiName: "research", args: [player] };
+    case "technologies": return { action, apiName: "technologies", args: [player, params.query || "", Number(params.limit ?? 25)] };
+    case "recipes": return { action, apiName: "recipes", args: [player, params.query || "", Number(params.limit ?? 25)] };
+    case "prototypes_search": return { action, apiName: "prototypes_search", args: [params.kind || "item", params.query || "", Number(params.limit ?? 25)] };
+    case "surface_info": return { action, apiName: "surface_info", args: [player] };
+    case "chat": return { action, apiName: "chat", args: [params.message || ""] };
+    case "place_entity": return { action, apiName: "place_entity", args: [player, params.entityName || params.entity || "", Number(params.dx ?? 0), Number(params.dy ?? 0)] };
+    case "craft": return { action, apiName: "craft", args: [player, params.itemName || params.item || "", Number(params.count ?? 1)] };
+    case "give_item": return { action, apiName: "give_item", args: [player, params.itemName || params.item || "", Number(params.count ?? 1)] };
+    case "remove_item": return { action, apiName: "remove_item", args: [player, params.itemName || params.item || "", Number(params.count ?? 1)] };
+    case "destroy_selected": return { action, apiName: "destroy_selected", args: [player] };
+    case "mine_selected": return { action, apiName: "mine_selected", args: [player] };
     case "move_player":
-    case "move": return { apiName: "move_player", args: [player, Number(params.dx ?? 0), Number(params.dy ?? 0)] };
+    case "move": return { action, apiName: "move_player", args: [player, Number(params.dx ?? 0), Number(params.dy ?? 0)] };
     default: throw new Error(`Unsupported Factorio runtime action: ${action}`);
   }
+}
+
+function mutationRequiresConfirmation(pluginConfig, params) {
+  if (pluginConfig.requireConfirmationForMutatingActions === false) return false;
+  if (pluginConfig.allowMutationsWithoutConfirmation === true) return false;
+  return !params?.confirmed;
 }
 
 const FactorioRuntimeParameters = {
   type: "object",
   additionalProperties: false,
   properties: {
-    action: { type: "string", enum: ["state", "inventory", "nearby", "nearby_entities", "production", "production_stats", "chat", "place_entity", "craft", "move", "move_player"] },
+    action: { type: "string", enum: ["capabilities", "players", "state", "inventory", "selected_entity", "nearby", "nearby_entities", "resources", "production", "production_stats", "force_state", "research", "technologies", "recipes", "prototypes_search", "surface_info", "chat", "place_entity", "craft", "give_item", "remove_item", "destroy_selected", "mine_selected", "move", "move_player"] },
     player: { type: "string", description: "Factorio player name. Leave empty for local/single-player fallback." },
-    radius: { type: "number" },
+    radius: { type: "number", description: "Search radius for nearby/resource queries." },
+    limit: { type: "number", description: "Maximum result count for list/search queries." },
+    query: { type: "string", description: "Substring query for recipes, technologies, and prototype search." },
+    kind: { type: "string", enum: ["item", "entity", "fluid", "recipe", "technology"], description: "Prototype kind for prototypes_search." },
+    name: { type: "string", description: "Optional entity prototype name filter for nearby_entities." },
+    type: { type: "string", description: "Optional entity type filter for nearby_entities, e.g. assembling-machine, resource, furnace." },
+    force: { type: "string", description: "Optional force filter for nearby_entities, e.g. player or enemy." },
     message: { type: "string" },
     entityName: { type: "string" },
     entity: { type: "string" },
@@ -295,6 +327,7 @@ const FactorioRuntimeParameters = {
     count: { type: "number" },
     dx: { type: "number" },
     dy: { type: "number" },
+    confirmed: { type: "boolean", description: "Set true only after user confirmation, unless plugin config disables mutation confirmations." }
   },
 };
 
@@ -411,11 +444,14 @@ export default definePluginEntry({
     api.registerTool({
       name: "factorio_runtime",
       label: "Factorio Runtime",
-      description: "Safely interact with a running Factorio game through the OpenClaw runtime mod over local RCON. Prefer read-only actions: state, inventory, nearby/nearby_entities, production/production_stats. Ask user confirmation before mutating actions: place_entity, craft, move/move_player. chat is safe and does not require confirmation.",
+      description: "Safely interact with a running Factorio game through the OpenClaw runtime mod over local RCON. Read-only actions include capabilities, players, state, inventory, selected_entity, nearby, resources, production, force_state, research, technologies, recipes, prototypes_search, and surface_info. Mutating actions require confirmed=true unless plugin config disables confirmation: craft, give_item, remove_item, place_entity, destroy_selected, mine_selected, move. chat is safe.",
       parameters: FactorioRuntimeParameters,
       async execute(_callId, params) {
-        const { apiName, args } = normalizeActionParams(params || {});
-        const data = await callRuntime(pluginConfig, apiName, args);
+        const normalized = normalizeActionParams(params || {});
+        if (MUTATING_ACTIONS.has(normalized.action) && mutationRequiresConfirmation(pluginConfig, params || {})) {
+          return textResult(`Confirmation required before Factorio mutating action: ${normalized.action}. Ask the user to confirm, then retry with confirmed=true. To disable this guard, set plugins.entries.openclaw-factorio-runtime.config.requireConfirmationForMutatingActions=false (or allowMutationsWithoutConfirmation=true).`, { action: normalized.action, confirmationRequired: true });
+        }
+        const data = await callRuntime(pluginConfig, normalized.apiName, normalized.args);
         return typeof data === "string" ? textResult(data) : jsonResult(data);
       },
     });

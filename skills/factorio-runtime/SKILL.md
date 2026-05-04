@@ -1,56 +1,106 @@
 ---
 name: factorio-runtime
-description: Inspect and safely interact with a running Factorio game through the bundled OpenClaw Factorio runtime mod and local RCON bridge. Use when the user asks about a running Factorio game, inventory, base state, nearby entities, production stats, or safe in-game actions.
+description: Inspect and safely interact with a running Factorio game through the bundled OpenClaw Factorio runtime mod and local RCON bridge. Use when the user asks about a running Factorio game, inventory, base state, nearby entities/resources, production/research stats, recipes/technologies/prototypes, or bounded in-game actions.
 metadata: {"openclaw":{"requires":{"config":["plugins.entries.openclaw-factorio-runtime.enabled"]}}}
 ---
 
 # Factorio Runtime Skill
 
-Use the `factorio_runtime` tool for live Factorio state. Use `factorio_status` when connectivity or setup is uncertain. Use `factorio_setup` only when the user wants setup/configuration help; it edits local Factorio files and requires a Factorio restart.
+Use `factorio_runtime` for live game state/actions. Use `factorio_status` when connectivity/setup is uncertain. Use `factorio_setup` only for setup/config help; it edits local Factorio files and requires a Factorio restart.
 
-## Runtime API
+Leave `player` empty for local single-player; the mod falls back to the first connected/valid player.
 
-`factorio_runtime` supports these actions:
+## Capability map
 
-- Read-only: `state`, `inventory`, `nearby` / `nearby_entities`, `production` / `production_stats`
-- Safe write: `chat`
-- Mutating actions requiring user confirmation first: `place_entity`, `craft`, `move` / `move_player`
+Read-only actions:
 
-Leave `player` empty for local single-player; the mod falls back to the first connected/valid player. Provide a name for multiplayer/server games when known.
+- `capabilities` — list runtime API groups and bounded limits.
+- `players` — list known players, connection state, positions, forces.
+- `state` — tick, map difficulty, player state, selected entity, inventory, force/enemy summary.
+- `inventory` — main inventory contents.
+- `selected_entity` — entity currently selected by the player/cursor.
+- `nearby` / `nearby_entities` — entities around player. Optional filters: `radius`, `limit`, `name`, `type`, `force`.
+- `resources` — nearby resource entities. Optional `radius`, `limit`.
+- `production` / `production_stats` — item/fluid production input/output counts, kills, current research.
+- `force_state` — force modifiers and research summary.
+- `research` — current research details and progress.
+- `technologies` — search force technologies with `query`, `limit`.
+- `recipes` — search force recipes with `query`, `limit`.
+- `prototypes_search` — search prototype names. Args: `kind` (`item`, `entity`, `fluid`, `recipe`, `technology`), `query`, `limit`.
+- `surface_info` — current surface/daytime/pollution-at-player.
 
-## Safety rules
+Safe write:
 
-Never execute arbitrary Lua or raw RCON for gameplay tasks.
+- `chat` — print `[OpenClaw] ...` in-game. No confirmation needed.
 
-Only use the curated runtime interface exposed through `factorio_runtime` / `remote.call("openclaw", ...)`.
+Mutating actions:
 
-Prefer read-only calls. Ask for explicit user confirmation before actions that modify the game, including placing entities, crafting items, teleporting/moving the player, modifying structures, altering research, combat, or logistics.
+- `craft` — queue hand-crafting: `itemName`/`item`, `count`.
+- `give_item` — insert item into player inventory: `itemName`/`item`, `count`.
+- `remove_item` — remove item from player inventory: `itemName`/`item`, `count`.
+- `place_entity` — create an entity near player: `entityName`/`entity`, `dx`, `dy`.
+- `mine_selected` — mine currently selected entity into inventory.
+- `destroy_selected` — destroy currently selected entity.
+- `move` / `move_player` — teleport by bounded offset: `dx`, `dy`.
 
-The `chat` action is considered safe and does not require confirmation.
+## Confirmation policy
 
-## Read-only workflow
+By default, ask for explicit user confirmation before every mutating action, then call `factorio_runtime` with `confirmed: true`.
 
-For vague requests like "how is my base doing?":
+Users can opt out globally with plugin config:
 
-1. Call `factorio_status` if you have not used the runtime successfully in this session.
-2. Call `factorio_runtime` with `action: "state"`.
-3. Add `production` when production/research/base health is relevant.
-4. Add `nearby` when location context matters.
-5. Summarize clearly; mention blockers if RCON/mod setup is incomplete.
+```json
+{
+  "requireConfirmationForMutatingActions": false
+}
+```
 
-## Action workflow
+or:
 
-For requests like "place an assembler":
+```json
+{
+  "allowMutationsWithoutConfirmation": true
+}
+```
 
-1. Read current `state` first.
-2. Infer only small local offsets when safe; otherwise ask for the target.
-3. Ask for confirmation before the mutating action.
-4. Execute the curated action after confirmation.
-5. Report the result.
+If either opt-out is configured, mutating actions may be executed without per-action confirmation. Still be careful: read state first, avoid broad/destructive changes unless requested, and explain what you did.
+
+## Workflows
+
+For "what should I do next?":
+
+1. `state`
+2. `inventory`
+3. `nearby` with radius 30-50
+4. `production` if the factory exists
+5. `research` / `recipes` as needed
+6. Give a practical next step, not a giant plan.
+
+For "how is my base doing?":
+
+1. `state`
+2. `production`
+3. `nearby` filtered by useful types when relevant (`assembling-machine`, `furnace`, `mining-drill`, `transport-belt`, `inserter`, `resource`).
+4. Summarize bottlenecks and immediate actions.
+
+For placing/crafting/moving:
+
+1. Read `state` first.
+2. Use `prototypes_search` if unsure of exact prototype names.
+3. Confirm with user unless config disables confirmation.
+4. Execute the bounded action.
+5. Read `state`/`inventory` after if needed and report results.
+
+## Guardrails
+
+Never execute arbitrary Lua or raw RCON for gameplay tasks. Use only `factorio_runtime` / the curated `remote.call("openclaw", ...)` API.
+
+RCON is admin-level access. Do not expose passwords or credentials.
+
+The mod enforces conservative bounds: nearby radius/result limit, placement distance, movement distance, craft count, and item insertion/removal count.
 
 ## Troubleshooting
 
-- If RCON is unavailable: ask the user to run `openclaw factorio setup`, restart Factorio, enable `openclaw-runtime` in Mods if prompted, and load the save.
-- If the remote interface does not exist: the mod is not loaded in the current save/runtime; restart Factorio and confirm the mod is enabled.
-- If player lookup fails: retry with `player: ""` for local single-player, or ask for the exact multiplayer player name.
-- RCON is admin-level access. Do not expose passwords or credentials.
+- RCON unavailable: ask user to run `openclaw factorio setup`, restart Factorio, enable `openclaw-runtime` in Mods if prompted, and load the save.
+- Remote interface missing: mod is not loaded in current save/runtime; restart Factorio and confirm mod enabled.
+- Player lookup fails: retry with `player: ""` for local single-player, or ask for the exact multiplayer player name.

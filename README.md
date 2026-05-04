@@ -9,24 +9,51 @@ OpenClaw plugin for live Factorio inspection/control through:
 
 ## What agents can do
 
-Read-only:
+Read-only capabilities:
 
-- current player/game state
-- inventory
-- nearby entities
-- production/research stats
+- list runtime capabilities and bounded limits
+- list players and connection/position/force info
+- inspect current player/game state, selected entity, inventory, force/enemy summary
+- inspect nearby entities with filters for radius, prototype name, entity type, force, and limit
+- inspect nearby resources
+- inspect item/fluid production stats, kill stats, research progress
+- inspect force state, current research, technologies, recipes, prototypes, and surface info
 
 Safe write:
 
 - print in-game chat messages from OpenClaw
 
-Mutating actions, requiring explicit user confirmation first:
+Mutating capabilities:
 
-- craft items
+- queue hand-crafting
+- give/remove inventory items
 - place entities near the player
+- mine or destroy the currently selected entity
 - move/teleport the player by a bounded offset
 
 The runtime mod exposes only a curated `remote.call("openclaw", ...)` interface. The skill instructs agents not to run arbitrary Lua.
+
+## Permission model
+
+By default, `factorio_runtime` requires explicit confirmation for mutating actions. Agents should read state first, ask the user to confirm, then retry with `confirmed: true`.
+
+Users who want autonomous action can opt out in plugin config:
+
+```json
+{
+  "requireConfirmationForMutatingActions": false
+}
+```
+
+or:
+
+```json
+{
+  "allowMutationsWithoutConfirmation": true
+}
+```
+
+Use this only for saves where you're comfortable letting OpenClaw craft/place/move/mine/destroy/give/remove without per-action confirmation.
 
 ## Install
 
@@ -37,7 +64,7 @@ openclaw plugins install ./openclaw-factorio-plugin
 openclaw gateway restart
 ```
 
-From GitHub after this repo exists:
+From GitHub:
 
 ```bash
 openclaw plugins install git:github.com/romneyda/openclaw-factorio-plugin
@@ -87,7 +114,10 @@ openclaw factorio state [player]
 openclaw factorio nearby [player] [radius]
 openclaw factorio production [player]
 openclaw factorio chat "hello from OpenClaw"
-openclaw factorio call inventory ""
+openclaw factorio call capabilities
+openclaw factorio call players
+openclaw factorio call resources "" 50 100
+openclaw factorio call prototypes_search item belt 20
 openclaw factorio raw '/c rcon.print("ping")'
 ```
 
@@ -101,6 +131,12 @@ The plugin registers:
 - `factorio_status` — check install/config/RCON status
 - `factorio_runtime` — call the curated runtime API
 
+`factorio_runtime` actions:
+
+- Read-only: `capabilities`, `players`, `state`, `inventory`, `selected_entity`, `nearby`, `nearby_entities`, `resources`, `production`, `production_stats`, `force_state`, `research`, `technologies`, `recipes`, `prototypes_search`, `surface_info`
+- Safe write: `chat`
+- Mutating: `craft`, `give_item`, `remove_item`, `place_entity`, `destroy_selected`, `mine_selected`, `move`, `move_player`
+
 Manifest contracts declare these tools so OpenClaw can discover ownership without loading plugin code.
 
 ## Configuration
@@ -113,7 +149,8 @@ Optional plugin config under `plugins.entries.openclaw-factorio-runtime.config`:
   "port": 27015,
   "credentialPath": "~/.openclaw/factorio-runtime-rcon.json",
   "modsDir": "~/Library/Application Support/factorio/mods",
-  "factorioConfigPath": "~/Library/Application Support/factorio/config/config.ini"
+  "factorioConfigPath": "~/Library/Application Support/factorio/config/config.ini",
+  "requireConfirmationForMutatingActions": true
 }
 ```
 
@@ -135,9 +172,3 @@ export FACTORIO_RCON_PASSWORD='...'
 ## Publishing notes
 
 This is a native OpenClaw plugin. Required package metadata lives in `package.json`, and plugin manifest metadata lives in `openclaw.plugin.json`.
-
-Dry-run publish with ClawHub when ready:
-
-```bash
-clawhub package publish . --dry-run
-```
