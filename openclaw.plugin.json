@@ -1,0 +1,61 @@
+{
+  "id": "openclaw-factorio-runtime",
+  "name": "OpenClaw Factorio Runtime",
+  "description": "Installs a bundled Factorio runtime API mod and exposes safe local RCON tools for live game inspection/control.",
+  "version": "0.2.0",
+  "activation": {
+    "onStartup": true,
+    "onCapabilities": ["tool"],
+    "onCommands": ["factorio"]
+  },
+  "commandAliases": [
+    { "name": "factorio" }
+  ],
+  "contracts": {
+    "tools": ["factorio_setup", "factorio_status", "factorio_runtime"]
+  },
+  "skills": [
+    "skills/factorio-runtime"
+  ],
+  "uiHints": {
+    "host": {
+      "label": "RCON Host",
+      "placeholder": "127.0.0.1",
+      "help": "Local Factorio RCON host. Keep this on localhost for single-player/local games."
+    },
+    "port": {
+      "label": "RCON Port",
+      "placeholder": "27015"
+    },
+    "password": {
+      "label": "RCON Password",
+      "sensitive": true,
+      "help": "Optional override. Prefer running `openclaw factorio setup`, which stores a generated password locally."
+    },
+    "credentialPath": {
+      "label": "Credential Path",
+      "placeholder": "~/.openclaw/factorio-runtime-rcon.json",
+      "advanced": true
+    },
+    "modsDir": {
+      "label": "Factorio Mods Directory",
+      "advanced": true
+    },
+    "factorioConfigPath": {
+      "label": "Factorio config.ini Path",
+      "advanced": true
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "host": { "type": "string", "default": "127.0.0.1" },
+      "port": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 27015 },
+      "password": { "type": "string" },
+      "credentialPath": { "type": "string" },
+      "modsDir": { "type": "string" },
+      "factorioConfigPath": { "type": "string" }
+    }
+  }
+}

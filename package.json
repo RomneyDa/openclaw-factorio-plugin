@@ -1,0 +1,40 @@
+{
+  "name": "openclaw-factorio-runtime",
+  "version": "0.2.0",
+  "description": "OpenClaw plugin for live Factorio inspection/control through a bundled runtime mod and local RCON bridge.",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "index.js",
+    "openclaw.plugin.json",
+    "bin/factorio-rcon.mjs",
+    "assets/openclaw-runtime_0.1.0.zip",
+    "skills/factorio-runtime/SKILL.md",
+    "README.md"
+  ],
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "factorio",
+    "rcon"
+  ],
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ],
+    "runtimeExtensions": [
+      "./index.js"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2",
+      "minGatewayVersion": "2026.3.24-beta.2"
+    },
+    "build": {
+      "openclawVersion": "2026.3.24-beta.2",
+      "pluginSdkVersion": "2026.3.24-beta.2"
+    }
+  },
+  "bin": {
+    "factorio-rcon": "./bin/factorio-rcon.mjs"
+  }
+}
